@@ -3,13 +3,13 @@ services:
   # 1. O Banco de Dados Postgres (Corrigido)
   - type: pserv
     name: desifra-db
+    runtime: postgres # <-- A CORREÇÃO ESTÁ AQUI
     plan: free
-    # Os campos 'databaseName' e 'user' foram removidos.
-    # A Render irá gerá-los automaticamente.
 
-  # 2. O Redis (Serviço Gerenciado)
+  # 2. O Redis (Serviço Gerenciado) (Corrigido)
   - type: pserv
     name: desifra-redis
+    runtime: redis # <-- A CORREÇÃO ESTÁ AQUI
     plan: free
 
   # 3. O Django (Gunicorn)
