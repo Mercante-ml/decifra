@@ -1,40 +1,35 @@
 # render.yaml
 services:
 
-  # 1. O Banco de Dados Postgres (Sintaxe Correta)
-  - type: database # <-- CORRIGIDO
+  # 1. O Banco de Dados Postgres
+  - type: database
     name: valuation-db
     plan: free
-    databaseName: desifra_db # Este campo é válido para type: database
-    user: desifra           # Este campo é válido para type: database
+    databaseName: desifra_db
+    user: desifra
 
-  # 2. Redis gerenciado (Do seu arquivo, está correto)
+  # 2. Redis gerenciado
   - type: redis
     name: valuation-redis
     plan: free
-    region: oregon # (Bom manter a mesma região do DB)
+    region: oregon # (Boa ideia manter a mesma região do DB)
 
-  # 3. Aplicação Web Django (Corrigido para apontar para os tipos corretos)
+  # 3. Aplicação Web Django (Usa o Dockerfile principal)
   - type: web
     name: valuation-web
     plan: free
     runtime: docker
-    dockerfilePath: ./Dockerfile.web
+    dockerfilePath: ./Dockerfile # <-- USA O SEU DOCKERFILE PRINCIPAL
     dockerContext: .
+    dockerCommand: "gunicorn valuation.wsgi:application --bind 0.0.0.0:${PORT}" # Comando do Gunicorn
     healthCheckPath: /accounts/login/
     envVars:
       - key: DATABASE_URL
-        fromService: { type: database, name: valuation-db, property: connectionString } # <-- CORRIGIDO
-      - key: REDIS_URL
-        fromService: { type: redis, name: valuation-redis, property: connectionString }
+        fromService: { type: database, name: valuation-db, property: connectionString }
       - key: CELERY_BROKER_URL
         fromService: { type: redis, name: valuation-redis, property: connectionString }
       - key: DJANGO_SETTINGS_MODULE
         value: valuation.settings
-      - key: PYTHONUNBUFFERED
-        value: "1"
-      - key: PYTHONDONTWRITEBYTECODE
-        value: "1"
       - key: DEBUG
         value: "False"
       # --- CHAVES SECRETAS (Adicione no painel da Render) ---
@@ -57,26 +52,21 @@ services:
         
     buildCommand: "python manage.py collectstatic --noinput && python manage.py migrate"
 
-  # 4. Worker do Celery (Corrigido para apontar para os tipos corretos)
+  # 4. Worker do Celery (Usa o Dockerfile principal)
   - type: worker
     name: valuation-celery
     plan: starter 
     runtime: docker
-    dockerfilePath: ./Dockerfile.worker
+    dockerfilePath: ./Dockerfile # <-- USA O SEU DOCKERFILE PRINCIPAL
     dockerContext: .
+    dockerCommand: "celery -A valuation worker --loglevel=info --concurrency=2" # Comando do Celery
     envVars:
       - key: DATABASE_URL
-        fromService: { type: database, name: valuation-db, property: connectionString } # <-- CORRIGIDO
-      - key: REDIS_URL
-        fromService: { type: redis, name: valuation-redis, property: connectionString }
+        fromService: { type: database, name: valuation-db, property: connectionString }
       - key: CELERY_BROKER_URL
         fromService: { type: redis, name: valuation-redis, property: connectionString }
       - key: DJANGO_SETTINGS_MODULE
         value: valuation.settings
-      - key: PYTHONUNBUFFERED
-        value: "1"
-      - key: PYTHONDONTWRITEBYTECODE
-        value: "1"
       # --- CHAVES SECRETAS (Repetidas, necessário para o worker) ---
       - key: SECRET_KEY
         sync: false
