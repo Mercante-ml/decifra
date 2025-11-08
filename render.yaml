@@ -1,15 +1,18 @@
 # render.yaml
 services:
+  # 1. O Banco de Dados Postgres (Corrigido)
   - type: pserv
     name: desifra-db
     plan: free
-    databaseName: desifra_db
-    user: desifra
+    # Os campos 'databaseName' e 'user' foram removidos.
+    # A Render irá gerá-los automaticamente.
 
+  # 2. O Redis (Serviço Gerenciado)
   - type: pserv
     name: desifra-redis
     plan: free
 
+  # 3. O Django (Gunicorn)
   - type: web
     name: desifra-web
     env: docker
@@ -35,6 +38,7 @@ services:
       - key: DEBUG
         value: False
 
+  # 4. O Celery Worker
   - type: worker
     name: desifra-celery
     env: docker
