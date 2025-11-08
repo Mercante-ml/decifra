@@ -4,30 +4,32 @@ services:
   # 1. O Banco de Dados Postgres (ADICIONADO)
   - type: pserv
     name: valuation-db
-    runtime: postgres
-    plan: free # 'starter' se precisar de mais conexões
-    region: oregon # (Opcional, mas bom manter na mesma região do Redis)
+    plan: free
+    runtime: postgres # Definindo que este pserv é um postgres
+    region: oregon # Opcional, mas bom manter na mesma região do Redis
 
-  # 2. O Redis (Seu código já tinha)
-  - type: pserv # Mudado de 'redis' para 'pserv' com 'runtime: redis' (mais moderno)
+  # 2. Redis gerenciado (Do seu arquivo)
+  - type: redis
     name: valuation-redis
-    runtime: redis
     plan: free
     region: oregon
+    ipAllowList: []
 
-  # 3. Aplicação Web Django (Corrigido)
+  # 3. Aplicação Web Django (Do seu arquivo, com envVars corrigidas)
   - type: web
     name: valuation-web
     plan: free
     runtime: docker
     dockerfilePath: ./Dockerfile.web
     dockerContext: .
-    healthCheckPath: /accounts/login/ # (Mudei de '/' para uma página real)
+    healthCheckPath: /accounts/login/ # Página de login é um bom health check
     envVars:
       - key: DATABASE_URL
         fromService: { type: pserv, name: valuation-db, property: connectionString } # CORRIGIDO
+      - key: REDIS_URL
+        fromService: { type: redis, name: valuation-redis, property: connectionString }
       - key: CELERY_BROKER_URL
-        fromService: { type: pserv, name: valuation-redis, property: connectionString } # CORRIGIDO
+        fromService: { type: redis, name: valuation-redis, property: connectionString }
       - key: DJANGO_SETTINGS_MODULE
         value: valuation.settings
       - key: PYTHONUNBUFFERED
@@ -57,7 +59,7 @@ services:
         
     buildCommand: "python manage.py collectstatic --noinput && python manage.py migrate"
 
-  # 4. Worker do Celery (Corrigido)
+  # 4. Worker do Celery (Do seu arquivo, com envVars corrigidas)
   - type: worker
     name: valuation-celery
     plan: starter # (Correto, não pode ser free)
@@ -67,8 +69,10 @@ services:
     envVars:
       - key: DATABASE_URL
         fromService: { type: pserv, name: valuation-db, property: connectionString } # CORRIGIDO
+      - key: REDIS_URL
+        fromService: { type: redis, name: valuation-redis, property: connectionString }
       - key: CELERY_BROKER_URL
-        fromService: { type: pserv, name: valuation-redis, property: connectionString } # CORRIGIDO
+        fromService: { type: redis, name: valuation-redis, property: connectionString }
       - key: DJANGO_SETTINGS_MODULE
         value: valuation.settings
       - key: PYTHONUNBUFFERED
