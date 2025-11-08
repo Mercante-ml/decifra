@@ -1,58 +1,90 @@
 # render.yaml
 services:
-  # 1. O Banco de Dados Postgres (Corrigido)
-  - type: pserv
-    name: desifra-db
-    runtime: postgres # <-- A CORREÇÃO ESTÁ AQUI
-    plan: free
 
-  # 2. O Redis (Serviço Gerenciado) (Corrigido)
+  # 1. O Banco de Dados Postgres (ADICIONADO)
   - type: pserv
-    name: desifra-redis
-    runtime: redis # <-- A CORREÇÃO ESTÁ AQUI
-    plan: free
+    name: valuation-db
+    runtime: postgres
+    plan: free # 'starter' se precisar de mais conexões
+    region: oregon # (Opcional, mas bom manter na mesma região do Redis)
 
-  # 3. O Django (Gunicorn)
+  # 2. O Redis (Seu código já tinha)
+  - type: pserv # Mudado de 'redis' para 'pserv' com 'runtime: redis' (mais moderno)
+    name: valuation-redis
+    runtime: redis
+    plan: free
+    region: oregon
+
+  # 3. Aplicação Web Django (Corrigido)
   - type: web
-    name: desifra-web
-    env: docker
-    dockerfilePath: ./Dockerfile
-    dockerCommand: gunicorn valuation.wsgi:application --bind 0.0.0.0:8000
+    name: valuation-web
     plan: free
-    healthCheckPath: /accounts/login/
+    runtime: docker
+    dockerfilePath: ./Dockerfile.web
+    dockerContext: .
+    healthCheckPath: /accounts/login/ # (Mudei de '/' para uma página real)
     envVars:
       - key: DATABASE_URL
-        fromService:
-          type: pserv
-          name: desifra-db
-          property: connectionString
+        fromService: { type: pserv, name: valuation-db, property: connectionString } # CORRIGIDO
       - key: CELERY_BROKER_URL
-        fromService:
-          type: pserv
-          name: desifra-redis
-          property: connectionString
-      - key: DJANGO_ALLOWED_HOSTS
-        generateValue: true
-      - key: DJANGO_CSRF_TRUSTED_ORIGINS
-        generateValue: true
+        fromService: { type: pserv, name: valuation-redis, property: connectionString } # CORRIGIDO
+      - key: DJANGO_SETTINGS_MODULE
+        value: valuation.settings
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
       - key: DEBUG
-        value: False
+        value: "False"
+      # --- CHAVES SECRETAS ---
+      # (sync: false) significa que você DEVE adicioná-las no painel do Render
+      - key: SECRET_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GAMMA_API_KEY
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false # Adicione sua URL .onrender.com aqui no painel
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        sync: false # Adicione sua URL .onrender.com aqui no painel
+        
+    buildCommand: "python manage.py collectstatic --noinput && python manage.py migrate"
 
-  # 4. O Celery Worker
+  # 4. Worker do Celery (Corrigido)
   - type: worker
-    name: desifra-celery
-    env: docker
-    dockerfilePath: ./Dockerfile
-    dockerCommand: celery -A valuation worker --loglevel=info
-    plan: free
+    name: valuation-celery
+    plan: starter # (Correto, não pode ser free)
+    runtime: docker
+    dockerfilePath: ./Dockerfile.worker
+    dockerContext: .
     envVars:
       - key: DATABASE_URL
-        fromService:
-          type: pserv
-          name: desifra-db
-          property: connectionString
+        fromService: { type: pserv, name: valuation-db, property: connectionString } # CORRIGIDO
       - key: CELERY_BROKER_URL
-        fromService:
-          type: pserv
-          name: desifra-redis
-          property: connectionString
+        fromService: { type: pserv, name: valuation-redis, property: connectionString } # CORRIGIDO
+      - key: DJANGO_SETTINGS_MODULE
+        value: valuation.settings
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
+      # --- CHAVES SECRETAS (Repetidas, necessário para o worker) ---
+      - key: SECRET_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GAMMA_API_KEY
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
