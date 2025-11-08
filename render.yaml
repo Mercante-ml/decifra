@@ -1,18 +1,18 @@
 # render.yaml
 services:
 
-  # 1. O Banco de Dados Postgres (Corrigido com type: postgres)
-  - type: postgres
+  # 1. O Banco de Dados Postgres (Sintaxe Correta)
+  - type: database # <-- CORRIGIDO
     name: valuation-db
     plan: free
-    region: oregon 
+    databaseName: desifra_db # Este campo é válido para type: database
+    user: desifra           # Este campo é válido para type: database
 
   # 2. Redis gerenciado (Do seu arquivo, está correto)
   - type: redis
     name: valuation-redis
     plan: free
-    region: oregon
-    ipAllowList: []
+    region: oregon # (Bom manter a mesma região do DB)
 
   # 3. Aplicação Web Django (Corrigido para apontar para os tipos corretos)
   - type: web
@@ -24,7 +24,7 @@ services:
     healthCheckPath: /accounts/login/
     envVars:
       - key: DATABASE_URL
-        fromService: { type: postgres, name: valuation-db, property: connectionString } # CORRIGIDO
+        fromService: { type: database, name: valuation-db, property: connectionString } # <-- CORRIGIDO
       - key: REDIS_URL
         fromService: { type: redis, name: valuation-redis, property: connectionString }
       - key: CELERY_BROKER_URL
@@ -66,7 +66,7 @@ services:
     dockerContext: .
     envVars:
       - key: DATABASE_URL
-        fromService: { type: postgres, name: valuation-db, property: connectionString } # CORRIGIDO
+        fromService: { type: database, name: valuation-db, property: connectionString } # <-- CORRIGIDO
       - key: REDIS_URL
         fromService: { type: redis, name: valuation-redis, property: connectionString }
       - key: CELERY_BROKER_URL
