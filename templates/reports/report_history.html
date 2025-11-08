@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Meu Histórico de Valuations{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <h1 class="mb-4">Meu Histórico de Relatórios</h1>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col" class="ps-4">Relatório ID</th>
+                                    <th scope="col">Data da Criação</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col" class="text-end pe-4">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for report in reports %}
+                                <tr 
+                                  id="report-row-{{ report.id }}" 
+                                  {% if report.status == 'PROCESSING' or report.status == 'PENDING' %}
+                                    class="report-processing" 
+                                    data-report-id="{{ report.id }}"
+                                    data-status-url="{% url 'reports:api_check_report_status' pk=report.id %}"
+                                  {% endif %}
+                                >
+                                    <td class="ps-4 fw-medium">#{{ report.id }}</td>
+                                    
+                                    <td>{{ report.created_at|date:"d/m/Y, H:i" }}</td>
+                                    
+                                    <td id="status-badge-{{ report.id }}">
+                                        {% if report.status == 'SUCCESS' %}
+                                            <span class="badge text-bg-success rounded-pill">
+                                                <i class="bi bi-check-circle-fill me-1"></i> Concluído
+                                            </span>
+                                        {% elif report.status == 'PROCESSING' or report.status == 'PENDING' %}
+                                            <span class="badge text-bg-warning rounded-pill">
+                                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                                Processando
+                                            </span>
+                                        {% else %}
+                                            <span class="badge text-bg-danger rounded-pill">
+                                                <i class="bi bi-x-circle-fill me-1"></i> Falha
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    
+                                    <td class="text-end pe-4" id="action-cell-{{ report.id }}">
+                                        {% if report.status == 'SUCCESS' %}
+                                            <a href="{% url 'reports:report_detail' pk=report.pk %}" class="btn btn-primary btn-sm">
+                                                Ver Detalhes
+                                            </a>
+                                        {% else %}
+                                            <button class="btn btn-secondary btn-sm" disabled>
+                                                Indisponível
+                                            </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center p-5">
+                                        <p class="mb-0 text-muted">Você ainda não gerou nenhum relatório.</p>
+                                        <a href="{% url 'chatbot:dashboard' %}" class="btn btn-primary btn-sm mt-3">
+                                            Iniciar primeira simulação
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+// Armazena os timers para que possamos limpá-los se necessário
+const pollIntervals = new Map();
+const POLL_RATE_MS = 10000; // Verifica a cada 10 segundos
+
+/**
+ * Função principal que encontra relatórios "Processando" e inicia o polling.
+ */
+function startPolling() {
+    // Limpa timers antigos antes de começar (caso o usuário volte)
+    stopPolling(); 
+
+    const reportsToPoll = document.querySelectorAll('.report-processing');
+    
+    if (reportsToPoll.length === 0) {
+        return; // Nada para fazer
+    }
+
+    reportsToPoll.forEach(row => {
+        const reportId = row.dataset.reportId;
+        const statusUrl = row.dataset.statusUrl;
+        
+        if (!reportId || !statusUrl || pollIntervals.has(reportId)) {
+             return; // Já está sendo verificado ou faltam dados
+        }
+
+        const intervalId = setInterval(() => {
+            fetch(statusUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Falha na rede ao checar status.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'SUCCESS') {
+                        clearInterval(pollIntervals.get(reportId));
+                        pollIntervals.delete(reportId);
+                        
+                        const statusCell = document.getElementById(`status-badge-${reportId}`);
+                        statusCell.innerHTML = `
+                            <span class="badge text-bg-success rounded-pill">
+                                <i class="bi bi-check-circle-fill me-1"></i> Concluído
+                            </span>`;
+                        
+                        const actionCell = document.getElementById(`action-cell-${reportId}`);
+                        actionCell.innerHTML = `
+                            <a href="${data.detail_url}" class="btn btn-primary btn-sm">
+                                Ver Detalhes
+                            </a>`;
+                            
+                        row.classList.remove('report-processing');
+
+                    } else if (data.status === 'FAILED') {
+                        clearInterval(pollIntervals.get(reportId));
+                        pollIntervals.delete(reportId);
+                        
+                        const statusCell = document.getElementById(`status-badge-${reportId}`);
+                        statusCell.innerHTML = `
+                            <span class="badge text-bg-danger rounded-pill">
+                                <i class="bi bi-x-circle-fill me-1"></i> Falha
+                            </span>`;
+                        
+                        const actionCell = document.getElementById(`action-cell-${reportId}`);
+                        actionCell.innerHTML = `<button class="btn btn-secondary btn-sm" disabled>Falhou</button>`;
+                        
+                        row.classList.remove('report-processing');
+                    }
+                    // Se "PROCESSING", continua o loop
+                })
+                .catch(err => {
+                    console.error(`Erro ao checar status do Report ${reportId}:`, err);
+                    clearInterval(pollIntervals.get(reportId));
+                    pollIntervals.delete(reportId);
+                });
+        }, POLL_RATE_MS); // Fim do setInterval
+
+        pollIntervals.set(reportId, intervalId);
+    });
+}
+
+/**
+ * Para todos os timers de polling ativos.
+ */
+function stopPolling() {
+    pollIntervals.forEach((intervalId) => {
+        clearInterval(intervalId);
+    });
+    pollIntervals.clear();
+}
+
+// --- Ponto de Entrada do Script ---
+
+// 1. Roda quando a página carrega pela primeira vez
+document.addEventListener('DOMContentLoaded', startPolling);
+
+// 2. Roda quando o usuário navega (inclusive com o botão "Voltar")
+window.addEventListener('pageshow', (event) => {
+    // event.persisted é true se a página veio do "bfcache" (cache de Voltar/Avançar)
+    if (event.persisted) {
+        console.log("Página carregada do bfcache. Reiniciando polling.");
+        // Reinicia o polling para "acordar" a página
+        startPolling();
+    }
+});
+
+// 3. Para tudo quando o usuário sai da página
+window.addEventListener('pagehide', stopPolling);
+
+</script>
+{% endblock %}

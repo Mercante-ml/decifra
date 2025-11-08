@@ -1,0 +1,56 @@
+# docker-compose.yml
+#version: '3.9' # Ajustei para a versão mais recente que estava comentada.
+
+services:
+  # 1. Serviço do Django (Gunicorn)
+  web:
+    build: . # <--- ISSO FARÁ ELE USAR O NOVO Dockerfile ÚNICO
+    container_name: valuation_web
+    command: gunicorn valuation.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+    restart: always
+
+  # 2. Banco de Dados Postgres (usa variáveis do .env [cite: 1])
+  db:
+    image: postgres:15
+    container_name: desifra_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    restart: always
+
+  # 3. Redis (Broker do Celery)
+  redis:
+    image: redis:7
+    container_name: valuation_redis
+    restart: always
+
+  # 4. Celery Worker (Quem executa as tarefas de IA)
+  celery:
+    build: . # <--- ISSO FARÁ ELE USAR O NOVO Dockerfile ÚNICO
+    container_name: valuation_celery
+    command: celery -A valuation worker --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+    restart: always
+
+volumes:
+  postgres_data:

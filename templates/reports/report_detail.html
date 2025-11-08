@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% load humanize %} {% load l10n %} 
+
+{% block title %}Detalhe do Relatório #{{ report.id }}{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
+            <a href="{% url 'reports:report_history' %}" class="btn btn-outline-secondary btn-sm mb-3">
+                <i class="bi bi-arrow-left me-1"></i> Voltar para o Histórico
+            </a>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white p-4">
+                    <h1 class="h3 mb-0">Relatório de Valuation #{{ report.id }}</h1>
+                    <p class="text-muted mb-0">Gerado em: {{ report.created_at|date:"d/m/Y, H:i" }}</p>
+                </div>
+
+                <div class="card-body p-4">
+
+                    {% if report.status == 'FAILED' %}
+                        <div class="alert alert-danger">
+                            <h4 class="alert-heading">Falha no Processamento</h4>
+                            <p>Não foi possível gerar seu relatório. Motivo:</p>
+                            <p class="mb-0"><em>{{ report.result_data.error|default:"Erro desconhecido durante a análise inicial." }}</em></p>
+                        </div>
+                    {% elif report.status == 'PROCESSING' or report.status == 'PENDING' %}
+                         <div id="main-processing-block" class="report-processing" data-report-id="{{ report.id }}" data-status-url="{% url 'reports:api_check_report_status' pk=report.id %}">
+                             <div class="alert alert-info">
+                                <h4 class="alert-heading">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    Processando Relatório...
+                                </h4>
+                                <p class="mb-0">Seu relatório ainda está a ser gerado. Isto pode levar alguns minutos. A página será atualizada automaticamente.</p>
+                            </div>
+                        </div>
+                        <div id="report-content-block" class="d-none">
+                    {% elif report.status == 'SUCCESS' and report.result_data %}
+                        <div id="report-content-block">
+                    {% endif %}
+
+                    {% if report.status != 'FAILED' %}
+                        <div 
+                          class="mb-4" 
+                          id="gamma-status-block"
+                          {% if report.status == 'SUCCESS' and report.result_data.gamma_status == 'pending' %}
+                            data-is-polling="true"
+                            data-status-url="{% url 'reports:api_check_report_status' pk=report.id %}"
+                          {% endif %}
+                        >
+                            {% if report.gamma_presentation_url %}
+                                <div class="alert alert-success mb-0">
+                                    <h4 class="alert-heading">Apresentação Visual (Gamma)</h4>
+                                    <p>Sua apresentação personalizada gerada por IA está pronta!</p>
+                                    <a href="{{ report.gamma_presentation_url }}" class="btn btn-success" target="_blank" rel="noopener noreferrer">
+                                        <i class="bi bi-rocket-takeoff-fill me-2"></i> Abrir Apresentação
+                                    </a>
+                                </div>
+                            {% elif report.result_data.gamma_status == 'pending' %}
+                                <div class="alert alert-info mb-0">
+                                    <h4 class="alert-heading">
+                                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        Gerando Apresentação Visual...
+                                    </h4>
+                                    <p class="mb-0">A sua apresentação personalizada (Gamma) está a ser criada. Isto pode levar alguns minutos. A página será atualizada automaticamente.</p>
+                                </div>
+                            {% elif report.result_data.gamma_status == 'failed' %}
+                                 <div class="alert alert-warning mb-0">
+                                    <h4 class="alert-heading">Erro na Apresentação</h4>
+                                    <p class="mb-0">Não foi possível gerar a apresentação visual (Gamma) para este relatório.</p>
+                                 </div>
+                            {% endif %}
+                        </div>
+                        
+                        {% if report.gamma_presentation_url or report.result_data.gamma_status %}
+                            <hr class="my-4" id="gamma-hr">
+                        {% endif %}
+
+                        <h2 class="h4 mb-3">Valuation Estimado em 3 Cenários</h2>
+                        <p class="text-muted">Baseado no seu setor e nas taxas de crescimento estimadas pela IA ({{ report.result_data.cenarios.setor_crescimento_perc|floatformat:1|default:"N/A" }}%).</p>
+                        
+                        {% localize off %}
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="card text-center h-100">
+                                    <div class="card-header">Pessimista</div>
+                                    <div class="card-body">
+                                        <h5 class="card-title text-danger">R$ {{ report.result_data.cenarios.pessimista|floatformat:2|intcomma }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-center h-100 border-primary border-2">
+                                    <div class="card-header bg-primary text-white">Realista (Base)</div>
+                                    <div class="card-body">
+                                        <h4 class="card-title text-primary fw-bold">R$ {{ report.result_data.cenarios.realista|floatformat:2|intcomma }}</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card text-center h-100">
+                                    <div class="card-header">Otimista</div>
+                                    <div class="card-body">
+                                        <h5 class="card-title text-success">R$ {{ report.result_data.cenarios.otimista|floatformat:2|intcomma }}</h5>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endlocalize %}
+
+                        <hr class="my-4">
+                        <h2 class="h4">Indicadores Financeiros Chave</h2>
+                        <div class="row">
+                            {% with indicadores=report.result_data.indicadores %}
+                            <div class="col-md-6 mb-3">
+                                <ul class="list-group">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">Faturamento Anual: <strong class="text-dark">R$ {{ indicadores.faturamento_anual|floatformat:2|intcomma }}</strong></li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">Margem de Contribuição: <strong class="text-dark">{{ indicadores.margem_contribuicao_perc|floatformat:1 }}%</strong></li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">Ticket Médio: <strong class="text-dark">R$ {{ indicadores.ticket_medio|floatformat:2|intcomma }}</strong></li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <ul class="list-group">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">Ponto de Equilíbrio (Mês): <strong class="text-dark">R$ {{ indicadores.ponto_equilibrio|floatformat:2|intcomma }}</strong></li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">Taxa de Conversão: <strong class="text-dark">{{ indicadores.taxa_conversao|floatformat:1 }}%</strong></li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">Faturamento Mensal: <strong class="text-dark">R$ {{ indicadores.faturamento_mensal|floatformat:2|intcomma }}</strong></li>
+                                </ul>
+                            </div>
+                            {% endwith %}
+                        </div>
+
+                        <hr class="my-4">
+                        <h2 class="h4">Análise da IA</h2>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5 class="h6 text-success">Principais Forças (Drivers de Valor)</h5>
+                                <div class="list-group">
+                                    {% for item in report.result_data.pontos_fortes %}
+                                        <div class="list-group-item list-group-item-success">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1">{{ item.criterio }}</h6>
+                                            </div>
+                                            <small>Valor Ponderado: {{ item.valor }}</small>
+                                        </div>
+                                    {% empty %}
+                                        <p class="text-muted small">Nenhum driver de valor positivo identificado.</p>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h5 class="h6 text-danger">Pontos de Atenção (Riscos)</h5>
+                                <div class="list-group">
+                                    {% for item in report.result_data.pontos_atencao %}
+                                        <div class="list-group-item list-group-item-danger">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1">{{ item.criterio }}</h6>
+                                            </div>
+                                            <small>Valor Ponderado: {{ item.valor }}</small>
+                                        </div>
+                                    {% empty %}
+                                        <p class="text-muted small">Nenhum ponto de atenção identificado.</p>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+                        <h2 class="h4">Recomendação de Investidor</h2>
+                        <div class="p-3 bg-light rounded-3">
+                            <p class="mb-0">{{ report.result_data.recomendacao_investidor|default:"Nenhuma recomendação gerada." }}</p>
+                        </div>
+
+                        <hr class="my-4">
+                        <h2 class="h4">Dados Fornecidos</h2>
+                        <ul class="list-group">
+                            {% for key, value in report.inputs_data.items %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span class="text-capitalize">{{ key|title }}</span>
+                                    <strong class="text-dark">{{ value }}</strong>
+                                </li>
+                            {% endfor %}
+                        </ul>
+
+                    {% endif %}
+                    
+                    {% if report.status != 'FAILED' %}
+                        </div> {% endif %}
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // --- Polling para o Relatório Principal (se a página inteira estiver processando) ---
+    const mainProcessingBlock = document.getElementById('main-processing-block');
+    if (mainProcessingBlock) {
+        // Se o bloco principal de "Processando" existe, recarrega a página inteira
+        const statusUrl = mainProcessingBlock.dataset.statusUrl;
+        const intervalId = setInterval(() => {
+            fetch(statusUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'SUCCESS' || data.status === 'FAILED') {
+                        // Para o timer e recarrega a página
+                        clearInterval(intervalId);
+                        window.location.reload();
+                    }
+                    // Se ainda "PROCESSING", não faz nada
+                })
+                .catch(err => {
+                    console.error('Erro ao checar status principal:', err);
+                    clearInterval(intervalId);
+                });
+        }, 10000); // Verifica a cada 10 segundos
+    }
+
+
+    // --- Polling Apenas para o Bloco do Gamma ---
+    const gammaBlock = document.getElementById('gamma-status-block');
+    if (gammaBlock && gammaBlock.dataset.isPolling === 'true') {
+        
+        const statusUrl = gammaBlock.dataset.statusUrl;
+        const intervalId = setInterval(() => {
+            fetch(statusUrl) // Chama a nossa API (a mesma)
+                .then(response => response.json())
+                .then(data => {
+                    
+                    if (data.gamma_status === 'completed' && data.gamma_url) {
+                        // --- SUCESSO NO GAMMA ---
+                        clearInterval(intervalId);
+                        gammaBlock.dataset.isPolling = 'false';
+                        
+                        // Cria o novo HTML de sucesso
+                        gammaBlock.innerHTML = `
+                            <div class="alert alert-success mb-0">
+                                <h4 class="alert-heading">Apresentação Visual (Gamma)</h4>
+                                <p>Sua apresentação personalizada gerada por IA está pronta!</p>
+                                <a href="${data.gamma_url}" class="btn btn-success" target="_blank" rel="noopener noreferrer">
+                                    <i class="bi bi-rocket-takeoff-fill me-2"></i> Abrir Apresentação
+                                </a>
+                            </div>`;
+                        
+                        // Mostra o <hr>
+                        const hr = document.getElementById('gamma-hr');
+                        if (hr) hr.style.display = 'block';
+
+                    } else if (data.gamma_status === 'failed') {
+                        // --- FALHA NO GAMMA ---
+                        clearInterval(intervalId);
+                        gammaBlock.dataset.isPolling = 'false';
+                        
+                        // Cria o novo HTML de falha
+                        gammaBlock.innerHTML = `
+                            <div class="alert alert-warning mb-0">
+                                <h4 class="alert-heading">Erro na Apresentação</h4>
+                                <p class="mb-0">Não foi possível gerar a apresentação visual (Gamma) para este relatório.</p>
+                             </div>`;
+                    }
+                    // Se ainda "pending", não faz nada e espera o próximo loop
+                })
+                .catch(err => {
+                    console.error('Erro ao checar status do Gamma:', err);
+                    clearInterval(intervalId);
+                });
+        }, 10000); // Verifica a cada 10 segundos
+    }
+});
+</script>
+{% endblock %}

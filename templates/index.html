@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Desifra - Valuation de Startups{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <div class="container col-xxl-8 px-4 py-5">
+        <div class="row flex-lg-row-reverse align-items-center g-5 py-5">
+            
+            <div class="col-10 col-sm-8 col-lg-6">
+                <div class="bg-light p-4 p-lg-5 rounded-3 shadow-sm h-100">
+                    <h3 class="fw-bold mb-3">Análise Baseada em Fatos</h3>
+                    <ul class="list-unstyled mb-0">
+                        <li class="d-flex align-items-start mb-3">
+                            <i class="bi bi-check-circle-fill text-primary fs-4 me-3"></i>
+                            <span>Metodologia de 18 critérios ponderados, baseada em lógica de especialista.</span>
+                        </li>
+                        <li class="d-flex align-items-start mb-3">
+                            <i class="bi bi-check-circle-fill text-primary fs-4 me-3"></i>
+                            <span>Identificação automática de pontos fortes e pontos de atenção (riscos).</span>
+                        </li>
+                        <li class="d-flex align-items-start mb-3">
+                            <i class="bi bi-check-circle-fill text-primary fs-4 me-3"></i>
+                            <span>Cálculo de 5 indicadores financeiros chave (Margem, Ticket Médio, etc).</span>
+                        </li>
+                        <li class="d-flex align-items-start">
+                            <i class="bi bi-check-circle-fill text-primary fs-4 me-3"></i>
+                            <span>Geração de cenários de valuation (Otimista, Realista, Pessimista) com IA.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold lh-1 mb-4">Mostrando o real Valor da sua Startup.</h1>
+                <p class="lead">Uma ferramenta de análise e valuation de negócios, desenvolvida para consultores e startups em aceleração.</p>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-start mt-4">
+                    
+                    {% if user.is_authenticated %}
+                        <a href="{% url 'chatbot:dashboard' %}" class="btn btn-primary btn-lg px-4 me-md-2">Ir para o Simulador</a>
+                    {% else %}
+                        <a href="{% url 'users:login' %}" class="btn btn-primary btn-lg px-4">Acessar Plataforma (Login)</a>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container px-4 py-5">
+    <h2 class="pb-2 border-bottom text-center mb-5">Por que usar o Desifra?</h2>
+    <div class="row g-4 py-5 row-cols-1 row-cols-lg-3">
+        <div class="col d-flex align-items-start">
+            <div class="icon-square text-bg-primary bg-gradient fs-4 rounded-3 me-3">
+                <i class="bi bi-robot p-2"></i>
+            </div>
+            <div>
+                <h3 class="fs-4">Guiado por IA</h3>
+                <p>Um chatbot inteligente torna a coleta de dados complexos em uma conversa simples e amigável.</p>
+            </div>
+        </div>
+        <div class="col d-flex align-items-start">
+            <div class="icon-square text-bg-primary bg-gradient fs-4 rounded-3 me-3">
+                <i class="bi bi-bar-chart-line-fill p-2"></i>
+            </div>
+            <div>
+                <h3 class="fs-4">Relatórios Imediatos</h3>
+                <p>Receba seu valuation e um feedback detalhado assim que terminar a simulação, sem espera.</p>
+            </div>
+        </div>
+        <div class="col d-flex align-items-start">
+            <div class="icon-square text-bg-primary bg-gradient fs-4 rounded-3 me-3">
+                <i class="bi bi-shield-check p-2"></i>
+            </div>
+            <div>
+                <h3 class="fs-4">Seguro e Confiável</h3>
+                <p>Seus dados são criptografados e analisados por modelos robustos.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
