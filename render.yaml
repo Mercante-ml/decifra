@@ -1,31 +1,30 @@
 # render.yaml
 services:
 
-  # 1. O Banco de Dados Postgres (ADICIONADO)
-  - type: pserv
+  # 1. O Banco de Dados Postgres (Corrigido com type: postgres)
+  - type: postgres
     name: valuation-db
     plan: free
-    runtime: postgres # Definindo que este pserv é um postgres
-    region: oregon # Opcional, mas bom manter na mesma região do Redis
+    region: oregon 
 
-  # 2. Redis gerenciado (Do seu arquivo)
+  # 2. Redis gerenciado (Do seu arquivo, está correto)
   - type: redis
     name: valuation-redis
     plan: free
     region: oregon
     ipAllowList: []
 
-  # 3. Aplicação Web Django (Do seu arquivo, com envVars corrigidas)
+  # 3. Aplicação Web Django (Corrigido para apontar para os tipos corretos)
   - type: web
     name: valuation-web
     plan: free
     runtime: docker
     dockerfilePath: ./Dockerfile.web
     dockerContext: .
-    healthCheckPath: /accounts/login/ # Página de login é um bom health check
+    healthCheckPath: /accounts/login/
     envVars:
       - key: DATABASE_URL
-        fromService: { type: pserv, name: valuation-db, property: connectionString } # CORRIGIDO
+        fromService: { type: postgres, name: valuation-db, property: connectionString } # CORRIGIDO
       - key: REDIS_URL
         fromService: { type: redis, name: valuation-redis, property: connectionString }
       - key: CELERY_BROKER_URL
@@ -38,8 +37,7 @@ services:
         value: "1"
       - key: DEBUG
         value: "False"
-      # --- CHAVES SECRETAS ---
-      # (sync: false) significa que você DEVE adicioná-las no painel do Render
+      # --- CHAVES SECRETAS (Adicione no painel da Render) ---
       - key: SECRET_KEY
         sync: false
       - key: GEMINI_API_KEY
@@ -53,22 +51,22 @@ services:
       - key: DEFAULT_FROM_EMAIL
         sync: false
       - key: DJANGO_ALLOWED_HOSTS
-        sync: false # Adicione sua URL .onrender.com aqui no painel
+        sync: false 
       - key: DJANGO_CSRF_TRUSTED_ORIGINS
-        sync: false # Adicione sua URL .onrender.com aqui no painel
+        sync: false 
         
     buildCommand: "python manage.py collectstatic --noinput && python manage.py migrate"
 
-  # 4. Worker do Celery (Do seu arquivo, com envVars corrigidas)
+  # 4. Worker do Celery (Corrigido para apontar para os tipos corretos)
   - type: worker
     name: valuation-celery
-    plan: starter # (Correto, não pode ser free)
+    plan: starter 
     runtime: docker
     dockerfilePath: ./Dockerfile.worker
     dockerContext: .
     envVars:
       - key: DATABASE_URL
-        fromService: { type: pserv, name: valuation-db, property: connectionString } # CORRIGIDO
+        fromService: { type: postgres, name: valuation-db, property: connectionString } # CORRIGIDO
       - key: REDIS_URL
         fromService: { type: redis, name: valuation-redis, property: connectionString }
       - key: CELERY_BROKER_URL
