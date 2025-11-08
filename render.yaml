@@ -1,0 +1,58 @@
+# render.yaml
+services:
+  # 1. O Banco de Dados Postgres (Serviço Gerenciado)
+  - type: pserv
+    name: desifra-db
+    plan: free # Mude para 'starter' se precisar de mais performance
+    databaseName: desifra_db
+    user: desifra
+
+  # 2. O Redis (Serviço Gerenciado)
+  - type: pserv
+    name: desifra-redis
+    plan: free # Mude para 'starter' se precisar de mais performance
+
+  # 3. O Django (Gunicorn) - Usa seu Dockerfile
+  - type: web
+    name: desifra-web
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: gunicorn valuation.wsgi:application --bind 0.0.0.0:8000
+    plan: free # Mude para 'starter'
+    healthCheckPath: /accounts/login/ # Uma página que sabemos que deve carregar
+    envVars:
+      - key: DATABASE_URL
+        fromService:
+          type: pserv
+          name: desifra-db
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: pserv
+          name: desifra-redis
+          property: connectionString
+      - key: DJANGO_ALLOWED_HOSTS
+        generateValue: true # Render adiciona a URL .onrender.com aqui
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        generateValue: true # Render adiciona a URL .onrender.com aqui
+      - key: DEBUG
+        value: False # DEBUG deve ser False em produção
+      
+  # 4. O Celery Worker - Usa o mesmo Dockerfile
+  - type: worker
+    name: desifra-celery
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: celery -A valuation worker --loglevel=info
+    plan: free # Mude para 'starter'
+    envVars:
+      - key: DATABASE_URL
+        fromService:
+          type: pserv
+          name: desifra-db
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: pserv
+          name: desifra-redis
+          property: connectionString
