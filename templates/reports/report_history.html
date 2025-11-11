@@ -124,12 +124,14 @@ function startPolling() {
                         clearInterval(pollIntervals.get(reportId));
                         pollIntervals.delete(reportId);
                         
+                        // --- CORREÇÃO 1 AQUI ---
                         const statusCell = document.getElementById(`status-badge-${reportId}`);
                         statusCell.innerHTML = `
                             <span class="badge text-bg-success rounded-pill">
                                 <i class="bi bi-check-circle-fill me-1"></i> Concluído
                             </span>`;
                         
+                        // --- CORREÇÃO 2 AQUI ---
                         const actionCell = document.getElementById(`action-cell-${reportId}`);
                         actionCell.innerHTML = `
                             <a href="${data.detail_url}" class="btn btn-primary btn-sm">
@@ -142,12 +144,14 @@ function startPolling() {
                         clearInterval(pollIntervals.get(reportId));
                         pollIntervals.delete(reportId);
                         
+                        // --- CORREÇÃO 3 AQUI ---
                         const statusCell = document.getElementById(`status-badge-${reportId}`);
                         statusCell.innerHTML = `
                             <span class="badge text-bg-danger rounded-pill">
                                 <i class="bi bi-x-circle-fill me-1"></i> Falha
                             </span>`;
                         
+                        // --- CORREÇÃO 4 AQUI ---
                         const actionCell = document.getElementById(`action-cell-${reportId}`);
                         actionCell.innerHTML = `<button class="btn btn-secondary btn-sm" disabled>Falhou</button>`;
                         
