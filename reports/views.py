@@ -45,25 +45,24 @@ def check_report_status_api(request, pk):
         report = get_object_or_404(ValuationReport, pk=pk, user=request.user)
 
         # --- CORREÇÃO AQUI ---
-        # Verifica se result_data não é None antes de tentar acessá-lo
+        # Adiciona uma lógica "defensiva" para NUNCA quebrar
+        # se report.result_data for None.
+        gamma_status = 'pending' # Começa com um padrão seguro
+        
         if report.result_data:
+            # Só tenta ler .get() se 'result_data' NÃO for None
             gamma_status = report.result_data.get('gamma_status', 'pending')
         
-        # Se report.result_data for None, trata como 'failed' ou 'pending'
-        # para evitar o crash.
-        else:
-            # Se o status principal já for FAILED, o gamma_status também é.
-            if report.status == ValuationReport.StatusChoices.FAILED:
-                 gamma_status = 'failed'
-            # Se não, ainda está pendente (ou processando o erro)
-            else:
-                 gamma_status = 'pending'
+        # Se o report.result_data for None, mas o status geral for FAILED,
+        # então o gamma_status também falhou.
+        elif report.status == ValuationReport.StatusChoices.FAILED:
+             gamma_status = 'failed'
         # --- FIM DA CORREÇÃO ---
 
         data = {
             'status': report.status,
-            'gamma_status': gamma_status,
-            'gamma_url': report.gamma_presentation_url, # Isso é seguro, pois é None se não existir
+            'gamma_status': gamma_status, # Usa a variável segura
+            'gamma_url': report.gamma_presentation_url,
             'detail_url': reverse('reports:report_detail', kwargs={'pk': report.pk})
         }
         
@@ -73,6 +72,7 @@ def check_report_status_api(request, pk):
          logger.warning(f"API check_status falhou: Report {pk} não encontrado para user {request.user.pk}")
          return JsonResponse({'status': 'error', 'message': 'Not Found'}, status=404)
     except Exception as e:
-         # Captura qualquer outro erro inesperado
-         logger.error(f"Erro em check_report_status_api (Report {pk}): {e}", exc_info=True)
+         # Captura qualquer outro erro inesperado (NUNCA DEIXA O GUNICORN MORRER)
+         logger.error(f"Erro inesperado em check_report_status_api (Report {pk}): {e}", exc_info=True)
+         # Retorna um erro JSON em vez de quebrar
          return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
