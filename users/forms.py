@@ -10,7 +10,6 @@ class CustomUserCreationForm(UserCreationForm):
     """
     class Meta(UserCreationForm.Meta):
         model = CustomUser
-        # Define os campos que aparecerão no formulário
         fields = ('razao_social', 'cnpj', 'email', 'ddd', 'telefone', 'is_staff', 'is_active')
 
     def clean_cnpj(self):
