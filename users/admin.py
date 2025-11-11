@@ -20,7 +20,7 @@ class CustomUserAdmin(UserAdmin):
         'is_staff', 
         'is_active', 
         'usage_count', 
-        'date_joined'
+        'date_joined' # Adicionado aqui para visualização
     )
     
     # --- O que pode ser pesquisado ---
@@ -32,28 +32,41 @@ class CustomUserAdmin(UserAdmin):
     # --- Campo de ordenação ---
     ordering = ('cnpj',)
 
-    # --- Configurações de Edição e Adição ---
+    # --- A CORREÇÃO CRÍTICA ESTÁ AQUI ---
 
-    # 1. Campos de leitura
+    # 1. Define os campos que são apenas para leitura na página de edição.
+    # 'date_joined' e 'last_login' são geridos automaticamente pelo Django.
     readonly_fields = ('last_login', 'date_joined')
 
-    # 2. Fieldsets da PÁGINA DE ADIÇÃO (Este é o bloco que eu pedi para comentar)
-    # Ele DEVE existir para o admin funcionar.
+    # 2. Define os fieldsets para a PÁGINA DE ADIÇÃO (add)
+    # (Usado quando clica em "Add custom user")
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('cnpj', 'razao_social', 'email', 'ddd', 'telefone', 'password', 'password2'),
+            # Usa os campos do CustomUserCreationForm + password
+            'fields': ('cnpj', 'razao_social', 'email', 'ddd', 'telefone', 'is_staff', 'is_active', 'password', 'password2'),
         }),
     )
 
-    # 3. Fieldsets da PÁGINA DE EDIÇÃO (Mantenha isso)
+    # 3. Define os fieldsets para a PÁGINA DE EDIÇÃO (change)
+    # (Usado quando clica num utilizador existente. Substitui completamente o padrão.)
     fieldsets = (
+        # Informação Principal (Login e Senha)
         (None, {'fields': ('cnpj', 'password')}),
+        
+        # Informações da Empresa (Nossos campos)
         ('Dados da Empresa', {'fields': ('razao_social', 'email', 'ddd', 'telefone')}),
+        
+        # Permissões
         ('Permissões', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        
+        # Contagem de Uso
         ('Uso', {'fields': ('usage_count',)}),
+        
+        # Datas Importantes (Como estão em 'readonly_fields', serão mostrados mas não editáveis)
         ('Datas Importantes', {'fields': ('last_login', 'date_joined')}),
     )
+    # --- FIM DA CORREÇÃO ---
 
 # Registra o modelo CustomUser com a configuração CustomUserAdmin
 admin.site.register(CustomUser, CustomUserAdmin)
