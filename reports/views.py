@@ -2,17 +2,16 @@
 from django.shortcuts import render, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from .models import ValuationReport
-from django.http import JsonResponse, Http404
-from django.urls import reverse
-import logging # Adicionado logging
+from django.http import JsonResponse # <-- ADICIONADO
+from django.urls import reverse # <-- ADICIONADO
+import logging # <-- ADICIONADO
 
-# Configura o logger
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__) # <-- ADICIONADO
 
 @login_required
-def report_list_view(request):
+def report_history_view(request):
     """
-    Exibe o histórico de relatórios do usuário logado.
+    Exibe a lista de relatórios (histórico) do usuário.
     """
     reports = ValuationReport.objects.filter(user=request.user).order_by('-created_at')
     context = {
@@ -20,11 +19,11 @@ def report_list_view(request):
     }
     return render(request, 'reports/report_history.html', context)
 
-
 @login_required
 def report_detail_view(request, pk):
     """
     Exibe a página de detalhes de um relatório específico.
+    Garante que o usuário só possa ver seus próprios relatórios.
     """
     report = get_object_or_404(ValuationReport, pk=pk, user=request.user)
     context = {
@@ -33,46 +32,38 @@ def report_detail_view(request, pk):
     return render(request, 'reports/report_detail.html', context)
 
 
-# --- API VIEW PARA POLLING ---
+# --- NOVA VIEW DE API PARA POLLING ---
 
 @login_required
 def check_report_status_api(request, pk):
     """
-    API endpoint (JSON) para o JavaScript (polling) verificar o status 
-    de um relatório.
+    Uma API interna para o JavaScript verificar o status de um relatório,
+    incluindo o status da geração Gamma.
     """
     try:
-        report = get_object_or_404(ValuationReport, pk=pk, user=request.user)
-
-        # --- CORREÇÃO AQUI ---
-        # Adiciona uma lógica "defensiva" para NUNCA quebrar
-        # se report.result_data for None.
-        gamma_status = 'pending' # Começa com um padrão seguro
+        report = ValuationReport.objects.get(pk=pk, user=request.user)
         
-        if report.result_data:
-            # Só tenta ler .get() se 'result_data' NÃO for None
-            gamma_status = report.result_data.get('gamma_status', 'pending')
+        main_status = report.status
+        gamma_status = report.result_data.get('gamma_status')
+        gamma_url = report.gamma_presentation_url
         
-        # Se o report.result_data for None, mas o status geral for FAILED,
-        # então o gamma_status também falhou.
-        elif report.status == ValuationReport.StatusChoices.FAILED:
-             gamma_status = 'failed'
-        # --- FIM DA CORREÇÃO ---
-
-        data = {
-            'status': report.status,
-            'gamma_status': gamma_status, # Usa a variável segura
-            'gamma_url': report.gamma_presentation_url,
-            'detail_url': reverse('reports:report_detail', kwargs={'pk': report.pk})
-        }
-        
-        return JsonResponse(data)
-
-    except Http404:
-         logger.warning(f"API check_status falhou: Report {pk} não encontrado para user {request.user.pk}")
-         return JsonResponse({'status': 'error', 'message': 'Not Found'}, status=404)
+        # O status principal (IA) foi concluído
+        if main_status == ValuationReport.StatusChoices.SUCCESS:
+            return JsonResponse({
+                "status": "SUCCESS",
+                "detail_url": reverse('reports:report_detail', kwargs={'pk': report.pk}),
+                # Informações do Gamma
+                "gamma_status": gamma_status,
+                "gamma_url": gamma_url
+            })
+        elif main_status == ValuationReport.StatusChoices.FAILED:
+             return JsonResponse({"status": "FAILED", "gamma_status": gamma_status})
+        else:
+            # A tarefa principal ainda está PENDING ou PROCESSING
+            return JsonResponse({"status": "PROCESSING", "gamma_status": "pending"})
+            
+    except ValuationReport.DoesNotExist:
+        return JsonResponse({"status": "NOT_FOUND"}, status=404)
     except Exception as e:
-         # Captura qualquer outro erro inesperado (NUNCA DEIXA O GUNICORN MORRER)
-         logger.error(f"Erro inesperado em check_report_status_api (Report {pk}): {e}", exc_info=True)
-         # Retorna um erro JSON em vez de quebrar
-         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        logger.error(f"Erro em check_report_status_api: {e}")
+        return JsonResponse({"status": "ERROR"}, status=500)
