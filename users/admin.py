@@ -5,7 +5,8 @@ from .forms import CustomUserCreationForm # Importa o formulário de criação
 from .models import CustomUser
 
 class CustomUserAdmin(UserAdmin):
-    # Usa o nosso formulário customizado para a página "Adicionar utilizador"
+    # 1. ISTO ESTÁ CORRETO
+    # Diz ao Admin para usar o seu formulário de criação personalizado
     add_form = CustomUserCreationForm
 
     model = CustomUser
@@ -20,7 +21,7 @@ class CustomUserAdmin(UserAdmin):
         'is_staff', 
         'is_active', 
         'usage_count', 
-        'date_joined' # Adicionado aqui para visualização
+        'date_joined'
     )
     
     # --- O que pode ser pesquisado ---
@@ -32,24 +33,25 @@ class CustomUserAdmin(UserAdmin):
     # --- Campo de ordenação ---
     ordering = ('cnpj',)
 
-    # --- A CORREÇÃO CRÍTICA ESTÁ AQUI ---
+    # --- A CORREÇÃO ESTÁ AQUI ---
 
     # 1. Define os campos que são apenas para leitura na página de edição.
-    # 'date_joined' e 'last_login' são geridos automaticamente pelo Django.
     readonly_fields = ('last_login', 'date_joined')
 
-    # 2. Define os fieldsets para a PÁGINA DE ADIÇÃO (add)
-    # (Usado quando clica em "Add custom user")
-    add_fieldsets = (
-        (None, {
-            'classes': ('wide',),
-            # Usa os campos do CustomUserCreationForm + password
-            'fields': ('cnpj', 'razao_social', 'email', 'ddd', 'telefone', 'password', 'password2'),
-        }),
-    )
+    # 2. O BLOCO 'add_fieldsets' FOI REMOVIDO
+    # Este bloco estava a causar o conflito. Ao removê-lo,
+    # o Django vai usar corretamente o 'add_form = CustomUserCreationForm'
+    # que definimos no topo desta classe.
+    
+    # add_fieldsets = (
+    #     (None, {
+    #         'classes': ('wide',),
+    #         'fields': ('cnpj', 'razao_social', 'email', 'ddd', 'telefone', 'password', 'password2'),
+    #     }),
+    # )
 
-    # 3. Define os fieldsets para a PÁGINA DE EDIÇÃO (change)
-    # (Usado quando clica num utilizador existente. Substitui completamente o padrão.)
+    # 3. ESTE BLOCO ESTÁ CORRETO E DEVE SER MANTIDO
+    # Ele controla a página de *edição* (quando clica num usuário que já existe)
     fieldsets = (
         # Informação Principal (Login e Senha)
         (None, {'fields': ('cnpj', 'password')}),
